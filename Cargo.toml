@@ -1,0 +1,13 @@
+[package]
+name = "lunch-bot"
+version = "0.1.0"
+authors = ["Martin Sehnoutka <msehnout@redhat.com>"]
+
+[dependencies]
+irc = "0.13.5"
+failure = "0.1.1"
+regex = "1.0.1"
+lazy_static = "1.0.2"
+tokio-timer = "0.1"
+log = "0.4"
+env_logger = "0.5"
