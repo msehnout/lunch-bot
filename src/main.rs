@@ -5,6 +5,9 @@ extern crate failure;
 #[macro_use] extern crate lazy_static;
 extern crate regex;
 extern crate tokio_timer;
+#[macro_use] extern crate serde_derive;
+extern crate serde;
+extern crate serde_json;
 
 use failure::Error;
 use irc::client::prelude::*;
@@ -17,90 +20,10 @@ use std::time::{Duration, SystemTime};
 mod syntax;
 use syntax::{LunchCommand, ListOptions};
 
-type User = String;
+mod state;
+use state::{User, Group, LunchBotState, Proposal, StateUpdateCallbacks, update_state};
 
-#[derive(Debug)]
-struct Group {
-    name: String,
-    users: Vec<User>,
-}
-
-impl Group {
-    pub fn new<T>(name: T, users: Vec<T>) -> Group
-        where T: Into<String> {
-        Group {
-            name: name.into(),
-            users: users.into_iter().map(Into::into).collect(),
-        }
-    }
-
-    pub fn push_user<T>(&mut self, user: T)
-        where T: Into<String> {
-        self.users.push(user.into());
-    }
-
-    /// When using IRC, we usually set names with some appendix such as
-    /// |mtg or |lunch, so we need to update basic names with these
-    pub fn update_names(&self, users: Vec<User>) -> Group {
-        Group {
-            name: String::new(),
-            users: self.users.iter()
-                .filter_map(|base_user| {
-                    users.iter()
-                        .find(|current_user| {
-                            current_user.starts_with(base_user)
-                        })
-                        .map(|u| u.to_string())
-                })
-                .collect()
-        }
-    }
-}
-
-impl fmt::Display for Group {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.users.join(","))
-    }
-}
-
-struct Proposal {
-    place: String,
-    time: String,
-    group: Option<String>,
-    created: SystemTime,
-}
-
-impl fmt::Debug for Proposal {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} at {}", self.place, self.time)
-    }
-}
-
-impl Proposal {
-    pub fn new<T>(place: T, time: T) -> Proposal
-        where T: Into<String> {
-        Proposal {
-            place: place.into(),
-            time: time.into(),
-            group: None,
-            created: SystemTime::now(),
-        }
-    }
-
-    pub fn new_with_group<T>(place: T, time: T, group: T) -> Proposal
-        where T: Into<String> {
-        Proposal {
-            place: place.into(),
-            time: time.into(),
-            group: Some(group.into()),
-            created: SystemTime::now(),
-        }
-    }
-}
-
-trait StateUpdateCallbacks {
-    fn get_list_of_users(&self, channel: &str) -> Vec<User>;
-}
+mod storage;
 
 impl<'a> StateUpdateCallbacks for &'a IrcClient {
     fn get_list_of_users(&self, channel: &str) -> Vec<User> {
@@ -110,142 +33,6 @@ impl<'a> StateUpdateCallbacks for &'a IrcClient {
                 .collect()
         } else {
             vec![]
-        }
-    }
-}
-
-struct LunchBotState {
-    groups: Vec<Group>,
-    proposals: Vec<Proposal>,
-    store: u32,
-    channel: String,
-}
-
-impl LunchBotState {
-    fn new(channel: &str) -> Self {
-        LunchBotState {
-            groups: vec![],
-            proposals: vec![],
-            store: 0,
-            channel: channel.to_owned(),
-        }
-    }
-
-    fn get_group<'a>(&'a mut self, name: &str) -> Option<&'a mut Group> {
-        self.groups.iter_mut()
-            .find(|g| g.name == name)
-    }
-
-    fn remove_group(&mut self, name: &str) -> bool {
-        let length = self.groups.len();
-        self.groups.retain(|g| g.name != name);
-        if self.groups.len() < length {
-            true
-        } else {
-            false
-        }
-    }
-
-    fn list_of_groups(&self) -> String {
-        self.groups.iter()
-            .map(|g| g.name.clone())
-            .collect::<Vec<_>>()
-            .join(",")
-    }
-
-    fn remove_old_proposals(&mut self) {
-        let dur = Duration::from_secs(60*60*2);
-        self.proposals.retain(|p| {
-            if let Ok(d) = p.created.elapsed() {
-                d < dur
-            } else {
-                true
-            }
-        });
-    }
-
-    fn num_of_proposals(&self) -> usize {
-        self.proposals.len()
-    }
-}
-
-fn update_state<T>(line: &str, state: Arc<Mutex<LunchBotState>>, cb: &T) -> String
-  where T: StateUpdateCallbacks {
-    use LunchCommand::*;
-
-    match syntax::parse_command(line) {
-        Some(Add(n)) => {
-            let store = &mut state.lock().unwrap().store;
-            *store += n;
-            format!("Store: {}", *store)
-        }
-        Some(AddUser(user, group)) => {
-            let state = &mut state.lock().unwrap();
-            if let Some(g) = state.get_group(group) {
-                g.push_user(user);
-                format!("Group {} updated: {}", g.name, g)
-            } else {
-                format!("No group named {}", group)
-            }
-        }
-        Some(GroupAdd(name, users)) => {
-            let group = Group::new(name, users);
-            let ret = format!("New group: {} - {}", name, group);
-            {
-                let groups = &mut state.lock().unwrap().groups;
-                groups.push(group);
-            }
-            ret
-        }
-        Some(GroupRemove(name)) => {
-            let state = &mut state.lock().unwrap();
-            if state.remove_group(name) {
-                format!("Group {} has been removed", name)
-            } else {
-                format!("No such group: {}", name)
-            }
-        }
-        Some(Propose(place, time, group)) => {
-            if let Some(group) = group {
-                let proposal = Proposal::new_with_group(place, time, group);
-                let ret;
-                {
-                    let state = &mut state.lock().unwrap();
-                    // Unfortunately I need to borrow in advance in order to prevent lifetime
-                    // collisions.
-                    let channel = state.channel.clone();
-                    if let Some(g) = state.get_group(group) {
-                        ret = format!("{} go to {} at {}",
-                                      g.update_names(cb.get_list_of_users(&channel)),
-                                      place, time);
-                    } else {
-                        ret = format!("-No such group- go to {} at {}", place, time);
-                    }
-                    state.proposals.push(proposal);
-                }
-                ret
-            } else {
-                {
-                    let proposals = &mut state.lock().unwrap().proposals;
-                    proposals.push(Proposal::new(place, time));
-                }
-                format!("New proposal: go to {} at {}", place, time)
-            }
-        }
-        Some(List(opt)) => {
-            match opt {
-                ListOptions::Proposals => {
-                    let proposals = &state.lock().unwrap().proposals;
-                    format!("All proposals: {:?}", proposals)
-                }
-                ListOptions::Groups => {
-                    let groups = state.lock().unwrap().list_of_groups();
-                    format!("Groups: {}", groups)
-                }
-            }
-        }
-        _ => {
-            "Hi!".to_string()
         }
     }
 }
