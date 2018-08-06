@@ -38,10 +38,15 @@ impl<'a> StateUpdateCallbacks for &'a IrcClient {
 }
 
 fn run() -> Result<(), Error> {
+    let server: String = std::env::var("LUNCHBOT_SERVER")?;
+    let channel: String = std::env::var("LUNCHBOT_CHANNEL")?;
+    let port: u16 = std::env::var("LUNCHBOT_PORT")?.parse()?;
+
     let config = Config {
         nickname: Some("lunchbot".to_owned()),
-        server: Some("54.85.60.193".to_owned()),
-        channels: Some(vec!["#rust-spam".to_owned()]),
+        server: Some(server),
+        channels: Some(vec![channel]),
+        port: Some(port),
         ..Default::default()
     };
 
@@ -107,6 +112,6 @@ fn main() {
     info!("Starting up");
 
     if let Err(e) = run() {
-        println!("{}", e);
+        error!("{}", e);
     }
 }
