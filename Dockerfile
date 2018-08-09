@@ -1,8 +1,8 @@
-FROM fedora:latest
+FROM fedora:latest as build
 
 COPY ./ ./
 # TODO: openssl-sys is missing
-RUN dnf install rust cargo -y
+RUN dnf install rust cargo openssl-devel -y
 
 RUN cargo build --release
 RUN mkdir -p /build-out
