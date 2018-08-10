@@ -51,7 +51,13 @@ fn run() -> Result<(), Error> {
     };
 
     let mut reactor = IrcReactor::new()?;
-    let client = reactor.prepare_client_and_connect(&config).unwrap();
+    let client = match reactor.prepare_client_and_connect(&config) {
+        Ok(c) => c,
+        Err(e) => {
+            error!("Could not connect to the server: {}", &config.server.unwrap());
+            panic!("Don't know how to handle this error yet")
+        },
+    };
     client.identify()?;
 
     let state = Arc::new(Mutex::new(LunchBotState::new("#rust-spam")));
