@@ -1,14 +1,11 @@
-FROM fedora:latest as build
+FROM fedora:latest
 
 COPY ./ ./
 # TODO: openssl-sys is missing
-RUN dnf install rust cargo openssl-devel -y
+RUN dnf install rust cargo openssl-devel -y && \
+    cargo build --release                   && \
+    mkdir -p /build-out                     && \
+    cp target/release/lunch-bot /           && \
+    rm -rf target/
 
-RUN cargo build --release
-RUN mkdir -p /build-out
-RUN cp target/release/lunch-bot /build-out/
-
-FROM fedora:latest
-
-COPY --from=build /build-out/lunch-bot /
 CMD ["/lunch-bot"]
