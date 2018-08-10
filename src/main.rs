@@ -42,6 +42,15 @@ fn run() -> Result<(), Error> {
     let server: String = std::env::var("LUNCHBOT_SERVER")?;
     let channel: String = std::env::var("LUNCHBOT_CHANNEL")?;
     let port: u16 = std::env::var("LUNCHBOT_PORT")?.parse()?;
+    let backup_file = std::env::var("LUNCHBOT_BACKUP_FILE");
+
+    let mut state = LunchBotState::new("#rust-spam");
+
+    if let Ok(file_name) = &backup_file {
+        if let Err(e) = storage::recover_state(&mut state, Path::new(&file_name)) {
+            error!("Failed to recover state: {}", e);
+        }
+    }
 
     let config = Config {
         nickname: Some("lunchbot".to_owned()),
@@ -61,7 +70,7 @@ fn run() -> Result<(), Error> {
     };
     client.identify()?;
 
-    let state = Arc::new(Mutex::new(LunchBotState::new("#rust-spam")));
+    let state = Arc::new(Mutex::new(state));
 
     let send_interval = tokio_timer::wheel()
         .tick_duration(Duration::from_secs(1))
@@ -85,7 +94,7 @@ fn run() -> Result<(), Error> {
         })
     );
 
-    if let Ok(v) = std::env::var("LUNCHBOT_BACKUP_FILE") {
+    if let Ok(v) = backup_file {
         let backup_interval = tokio_timer::wheel()
             .tick_duration(Duration::from_secs(1))
             .num_slots(256)
