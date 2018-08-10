@@ -14,6 +14,7 @@ use irc::client::prelude::*;
 use irc::error::IrcError;
 use regex::{Regex};
 use std::fmt;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
@@ -53,7 +54,7 @@ fn run() -> Result<(), Error> {
     let mut reactor = IrcReactor::new()?;
     let client = match reactor.prepare_client_and_connect(&config) {
         Ok(c) => c,
-        Err(e) => {
+        Err(_e) => {
             error!("Could not connect to the server: {}", &config.server.unwrap());
             panic!("Don't know how to handle this error yet")
         },
@@ -73,7 +74,7 @@ fn run() -> Result<(), Error> {
     reactor.register_future(send_interval
         .map_err(IrcError::Timer)
         .for_each(move |_| {
-            // Anything in here will happen every 10 seconds!
+            // Anything in here will happen every 60 seconds!
             let state = &mut sc.lock().unwrap();
             let num_before = state.num_of_proposals();
             state.remove_old_proposals();
@@ -83,6 +84,27 @@ fn run() -> Result<(), Error> {
             Ok(())
         })
     );
+
+    if let Ok(v) = std::env::var("LUNCHBOT_BACKUP_FILE") {
+        let backup_interval = tokio_timer::wheel()
+            .tick_duration(Duration::from_secs(1))
+            .num_slots(256)
+            .build()
+            .interval(Duration::from_secs(300));
+
+        let sc = state.clone();
+
+        reactor.register_future(
+            backup_interval.map_err(IrcError::Timer)
+                .for_each(move|_| {
+                    if let Err(e) = storage::backup_state(&sc.lock().unwrap(), Path::new(&v)) {
+                        error!("Failed to backup the state: {}", e);
+                    }
+                    Ok(())
+                })
+        );
+
+    }
 
     reactor.register_client_with_handler(client,move|irc_client, message| {
         print!("{}", message);

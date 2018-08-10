@@ -5,13 +5,13 @@ use std::io::prelude::*;
 use std::fs::File;
 use std::path::Path;
 
-fn backup_state(state: &LunchBotState, file_name: &Path) -> Result<(), Error> {
+pub fn backup_state(state: &LunchBotState, file_name: &Path) -> Result<(), Error> {
     let mut f = File::create(file_name)?;
     f.write_all(serde_json::to_string(&state)?.as_bytes())?;
     Ok(())
 }
 
-fn recover_state(state: &mut LunchBotState, file_name: &Path) -> Result<(), Error> {
+pub fn recover_state(state: &mut LunchBotState, file_name: &Path) -> Result<(), Error> {
     let mut f = File::open(file_name)?;
     let mut contents = String::new();
     f.read_to_string(&mut contents)?;
