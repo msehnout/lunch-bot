@@ -5,12 +5,11 @@ Features:
 - [x] translate names from base to augmented (e.g. user -> user|wfh)
 - [x] propose places and times, list proposals
 - [x] delete old proposals automatically
-- [ ] periodically safe global state for recovery purposes
+- [x] periodically safe global state for recovery purposes
 
 Dev TODO:
-- [ ] write service file for deployment
 - [ ] improve logging
-- [ ] read configuration from file
+- [ ] improve inline docs
 
 Usage:
 ```
