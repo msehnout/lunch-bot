@@ -12,6 +12,7 @@ extern crate serde_json;
 use failure::Error;
 use irc::client::prelude::*;
 use irc::error::IrcError;
+use irc::proto::caps::Capability;
 use regex::{Regex};
 use std::fmt;
 use std::path::Path;
@@ -33,18 +34,20 @@ impl<'a> StateUpdateCallbacks for &'a IrcClient {
                 .map(|u| u.get_nickname().to_string())
                 .collect()
         } else {
+            error!("The user list cannot be acquired");
             vec![]
         }
     }
 }
 
 fn run() -> Result<(), Error> {
+    let nick: String = std::env::var("LUNCHBOT_NICK")?;
     let server: String = std::env::var("LUNCHBOT_SERVER")?;
     let channel: String = std::env::var("LUNCHBOT_CHANNEL")?;
     let port: u16 = std::env::var("LUNCHBOT_PORT")?.parse()?;
     let backup_file = std::env::var("LUNCHBOT_BACKUP_FILE");
 
-    let mut state = LunchBotState::new("#rust-spam");
+    let mut state = LunchBotState::new(&channel);
 
     if let Ok(file_name) = &backup_file {
         if let Err(e) = storage::recover_state(&mut state, Path::new(&file_name)) {
@@ -53,7 +56,7 @@ fn run() -> Result<(), Error> {
     }
 
     let config = Config {
-        nickname: Some("lunchbot".to_owned()),
+        nickname: Some(nick),
         server: Some(server),
         channels: Some(vec![channel]),
         port: Some(port),
@@ -68,6 +71,7 @@ fn run() -> Result<(), Error> {
             panic!("Don't know how to handle this error yet")
         },
     };
+    client.send_cap_req(&[Capability::MultiPrefix])?;
     client.identify()?;
 
     let state = Arc::new(Mutex::new(state));

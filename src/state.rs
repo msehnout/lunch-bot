@@ -193,8 +193,12 @@ pub fn update_state<T>(line: &str, state: Arc<Mutex<LunchBotState>>, cb: &T) -> 
                     // collisions.
                     let channel = state.channel.clone();
                     if let Some(g) = state.get_group(group) {
+                        let users = cb.get_list_of_users(&channel);
+                        info!("Users: {:?}", users);
+                        let updated_names = g.update_names(users);
+                        info!("Propose {:?}, group {:?}, names {:?}", proposal, g, updated_names);
                         ret = format!("{} go to {} at {}",
-                                      g.update_names(cb.get_list_of_users(&channel)),
+                                      updated_names,
                                       place, time);
                     } else {
                         ret = format!("-No such group- go to {} at {}", place, time);
