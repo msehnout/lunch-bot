@@ -11,6 +11,18 @@ Dev TODO:
 - [ ] improve logging
 - [ ] improve inline docs
 
+Getting started
+```
+1. Create a group (use names, that are not augmented with |wfh or |ooo etc.)
+lb group add GROUPNAME USER1,USER2,USER3
+
+2. Propose a place
+lb propose RESTAURANT 12:00 to GROUPNAME
+
+3. See available proposals
+lb list proposals
+```
+
 Usage:
 ```
   lb propose <place>[ at] <time> [to <group>]

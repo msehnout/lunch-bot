@@ -227,7 +227,7 @@ pub fn update_state<T>(line: &str, state: Arc<Mutex<LunchBotState>>, cb: &T) -> 
             }
         }
         _ => {
-            "Hi!".to_string()
+            include_str!("../usage").to_string()
         }
     }
 }
