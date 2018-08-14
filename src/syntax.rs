@@ -1,11 +1,19 @@
 use regex::{Captures, Match, Regex};
 use std::str::FromStr;
 
+const PROPOSE_SYNTAX: &'static str = concat!(
+    r"lb propose ",                         // command
+    r#"((?:[\w-]+|['"][\s\w-]+['"])) "#,    // place
+    r"(?:at |@ )?",                         // optional separator
+    r"([\w:]+)",                            // time
+    r"(?: to (\w+))?"                       // optional group
+);
+
 lazy_static! {
         static ref ADD_CMD_REGEX: Regex = Regex::new(r"lb add (\d+)").unwrap();
         static ref ADD_USER_CMD_REGEX: Regex = Regex::new(r"lb add (\w+) to (\w+)").unwrap();
         static ref GROUP_CMD_REGEX: Regex = Regex::new(r"lb group (?:(add) (\w+) ([\w,]+)|(remove) (\w+))").unwrap();
-        static ref PROPOSE_CMD_REGEX: Regex = Regex::new(r"lb propose (\w+)(?: at)? ([\w:]+)(?: to (\w+))?").unwrap();
+        static ref PROPOSE_CMD_REGEX: Regex = Regex::new(PROPOSE_SYNTAX).unwrap();
         static ref LIST_CMD_REGEX: Regex = Regex::new(r"lb list(?: (groups|proposals))?").unwrap();
 }
 
@@ -137,4 +145,34 @@ fn test_propose_cmd() {
 fn test_propose_to_group_cmd() {
     assert_eq!(Some(LunchCommand::Propose("winston", "10:55", Some("corserv1"))),
                parse_command("lb propose winston 10:55 to corserv1"))
+}
+
+#[test]
+fn test_propose_cmd_with_dashes() {
+    assert_eq!(Some(LunchCommand::Propose("taste-of-india", "10:55", None)),
+               parse_command("lb propose taste-of-india 10:55"))
+}
+
+#[test]
+fn test_propose_cmd_with_quotation_marks() {
+    assert_eq!(Some(LunchCommand::Propose(r#""taste of india""#, "10:55", None)),
+               parse_command(r#"lb propose "taste of india" 10:55"#))
+}
+
+#[test]
+fn test_propose_cmd_with_quotation_marks2() {
+    assert_eq!(Some(LunchCommand::Propose(r#"'taste of india'"#, "10:55", None)),
+               parse_command(r#"lb propose 'taste of india' 10:55"#))
+}
+
+#[test]
+fn test_propose_cmd_with_at() {
+    assert_eq!(Some(LunchCommand::Propose(r#"'taste of india'"#, "10:55", None)),
+               parse_command(r#"lb propose 'taste of india' at 10:55"#))
+}
+
+#[test]
+fn test_propose_cmd_with_at_sign() {
+    assert_eq!(Some(LunchCommand::Propose(r#"'taste of india'"#, "10:55", None)),
+               parse_command(r#"lb propose 'taste of india' @ 10:55"#))
 }
