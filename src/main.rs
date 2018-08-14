@@ -125,10 +125,12 @@ fn run() -> Result<(), Error> {
             Command::PRIVMSG(ref target, ref line) => {
                 if line.starts_with("lb ") {
                     let message = update_state(line, state.clone(), &irc_client);
-                    let _ = irc_client.send_privmsg(
+                    if let Err(e) = irc_client.send_privmsg(
                         target,
                         &message
-                    );
+                    ) {
+                        error!("send_privmsg: {:?}", e);
+                    }
                 }
             }
             _ => (),
