@@ -163,7 +163,11 @@ where
 {
     use LunchCommand::*;
 
-    match parse_command(line) {
+    let cmd = parse_command(line);
+    if let Some(ref cmd) = cmd {
+        info!("Incoming command: {:?}", cmd);
+    }
+    match cmd {
         Some(Add(n)) => {
             let store = &mut state.lock().unwrap().store;
             *store += n;
@@ -206,10 +210,9 @@ where
                     let channel = state.channel.clone();
                     if let Some(g) = state.get_group(group) {
                         let users = cb.get_list_of_users(&channel);
-                        info!("Users: {:?}", users);
                         let updated_names = g.update_names(users);
                         info!(
-                            "Propose {:?}, group {:?}, names {:?}",
+                            "Proposal {:?}, group {:?}, names {:?}",
                             proposal, g, updated_names
                         );
                         ret = format!("{} go to {} at {}", updated_names, place, time);
