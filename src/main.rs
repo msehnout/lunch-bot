@@ -92,7 +92,10 @@ fn run() -> Result<(), Error> {
             let num_before = state.num_of_proposals();
             state.remove_old_proposals();
             let num_after = state.num_of_proposals();
-            info!("Removing {} old proposals", num_before - num_after);
+            let removed = num_before - num_after;
+            if removed > 0 {
+                info!("Removing {} old proposals", removed);
+            }
             //send_client.send_privmsg("#rust-spam", "AWOOOOOOOOOO")
             Ok(())
         })
@@ -120,16 +123,37 @@ fn run() -> Result<(), Error> {
     }
 
     reactor.register_client_with_handler(client,move|irc_client, message| {
-        print!("{}", message);
+        info!("Message |{:?}|::|{:?}|::|{:?}|", message.tags, message.prefix, message.command);
         match message.command {
             Command::PRIVMSG(ref target, ref line) => {
                 if line.starts_with("lb ") {
-                    let message = update_state(line, state.clone(), &irc_client);
-                    if let Err(e) = irc_client.send_privmsg(
-                        target,
-                        &message
-                    ) {
-                        error!("send_privmsg: {:?}", e);
+                    // Update state and store the response
+                    let response = update_state(line, state.clone(), &irc_client);
+                    // Get current nickname of the bot itself
+                    let current_nickname = irc_client.current_nickname();
+                    // Get message prefix, that is the sender of this msg
+                    let msg_prefix = &message.prefix;
+                    // If the message was private, I want to send it back
+                    // as a private to the sender only
+                    if target == current_nickname {
+                        if let Some(prefix) = msg_prefix {
+                            if let Err(e) = irc_client.send_privmsg(
+                                prefix,
+                                &response
+                            ) {
+                                error!("send_privmsg: {:?}", e);
+                            }
+                        } else {
+                            error!("I got a private message, but can't send it back");
+                        }
+                    // else send it to the channel
+                    } else {
+                        if let Err(e) = irc_client.send_privmsg(
+                            target,
+                            &response
+                        ) {
+                            error!("send_privmsg: {:?}", e);
+                        }
                     }
                 }
             }
