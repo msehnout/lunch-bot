@@ -62,17 +62,23 @@ pub struct Proposal {
     place: String,
     time: String,
     group: Option<String>,
+    meeting_point: Option<(String, String)>,
     created: SystemTime,
 }
 
 impl fmt::Debug for Proposal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} at {}", self.place, self.time)
+        let mtg_point = if let Some(ref p) = self.meeting_point {
+            format!(" - meeting {} at {}", p.0, p.1)
+        } else {
+            "".to_string()
+        };
+        write!(f, "{} at {}{}", self.place, self.time, mtg_point)
     }
 }
 
 impl Proposal {
-    pub fn new<T>(place: T, time: T) -> Proposal
+    pub fn new<T>(place: T, time: T, meeting_point: Option<(T, T)>) -> Proposal
     where
         T: Into<String>,
     {
@@ -80,11 +86,12 @@ impl Proposal {
             place: place.into(),
             time: time.into(),
             group: None,
+            meeting_point: meeting_point.map(|(a,b)| (a.into(), b.into())),
             created: SystemTime::now(),
         }
     }
 
-    pub fn new_with_group<T>(place: T, time: T, group: T) -> Proposal
+    pub fn new_with_group<T>(place: T, time: T, group: T, meeting_point: Option<(T, T)>) -> Proposal
     where
         T: Into<String>,
     {
@@ -92,6 +99,7 @@ impl Proposal {
             place: place.into(),
             time: time.into(),
             group: Some(group.into()),
+            meeting_point: meeting_point.map(|(a,b)| (a.into(), b.into())),
             created: SystemTime::now(),
         }
     }
@@ -199,9 +207,9 @@ where
                 format!("No such group: {}", name)
             }
         }
-        Some(Propose(place, time, group)) => {
+        Some(Propose(place, time, group, meeting_point)) => {
             if let Some(group) = group {
-                let proposal = Proposal::new_with_group(place, time, group);
+                let proposal = Proposal::new_with_group(place, time, group, meeting_point);
                 let ret;
                 {
                     let state = &mut state.lock().unwrap();
@@ -215,19 +223,19 @@ where
                             "Proposal {:?}, group {:?}, names {:?}",
                             proposal, g, updated_names
                         );
-                        ret = format!("{} go to {} at {}", updated_names, place, time);
+                        ret = format!("{} go to {:?}", updated_names, &proposal);
                     } else {
-                        ret = format!("-No such group- go to {} at {}", place, time);
+                        ret = format!("-No such group- go to {:?}", &proposal);
                     }
                     state.proposals.push(proposal);
                 }
                 ret
             } else {
-                {
-                    let proposals = &mut state.lock().unwrap().proposals;
-                    proposals.push(Proposal::new(place, time));
-                }
-                format!("New proposal: go to {} at {}", place, time)
+                let proposal = Proposal::new(place, time, meeting_point);
+                let ret = format!("New proposal: go to {:?}", proposal);
+                let proposals = &mut state.lock().unwrap().proposals;
+                proposals.push(proposal);
+                ret
             }
         }
         Some(List(opt)) => match opt {
