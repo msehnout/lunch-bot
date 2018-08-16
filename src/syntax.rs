@@ -16,6 +16,8 @@ lazy_static! {
         Regex::new(r"lb group (?:(add) (\w+) ([\w,]+)|(remove) (\w+))").unwrap();
     static ref PROPOSE_CMD_REGEX: Regex = Regex::new(PROPOSE_SYNTAX).unwrap();
     static ref LIST_CMD_REGEX: Regex = Regex::new(r"lb list(?: (groups|proposals))?").unwrap();
+    static ref DUMPSTATE_CMD_REGEX: Regex = Regex::new(r"lb dumpstate").unwrap();
+    static ref RESTORECONFIG_CMD_REGEX: Regex = Regex::new(r"lb restore (.*)").unwrap();
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -32,6 +34,8 @@ pub enum LunchCommand<'a> {
     GroupRemove(&'a str),
     List(ListOptions),
     Propose(&'a str, &'a str, Option<&'a str>), //(place, time, group)
+    DumpState,
+    RestoreState(&'a str),
 }
 
 fn add(caps: Captures) -> Option<LunchCommand> {
@@ -78,6 +82,16 @@ fn list(caps: Captures) -> Option<LunchCommand> {
     }
 }
 
+fn dump(_caps: Captures) -> Option<LunchCommand> {
+    Some(LunchCommand::DumpState)
+}
+
+fn restore(caps: Captures) -> Option<LunchCommand> {
+    caps.get(1)
+        .map(|c| c.as_str())
+        .map(|s| LunchCommand::RestoreState(s))
+}
+
 pub fn parse_command(line: &str) -> Option<LunchCommand> {
     if let Some(caps) = ADD_CMD_REGEX.captures(line) {
         add(caps)
@@ -89,6 +103,10 @@ pub fn parse_command(line: &str) -> Option<LunchCommand> {
         propose(caps)
     } else if let Some(caps) = LIST_CMD_REGEX.captures(line) {
         list(caps)
+    } else if let Some(caps) = DUMPSTATE_CMD_REGEX.captures(line) {
+        dump(caps)
+    } else if let Some(caps) = RESTORECONFIG_CMD_REGEX.captures(line) {
+        restore(caps)
     } else {
         None
     }

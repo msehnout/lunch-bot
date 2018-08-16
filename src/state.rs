@@ -2,6 +2,8 @@ use std::fmt;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
+use serde_json;
+
 use super::syntax::{parse_command, ListOptions};
 
 pub type User = String;
@@ -235,6 +237,19 @@ where
                 format!("Groups: {}", groups)
             }
         },
+        Some(DumpState) => {
+            let state: &LunchBotState = &state.lock().unwrap();
+            serde_json::to_string(state).unwrap_or("failed to dump state".to_string())
+        }
+        Some(RestoreState(input_state_string)) => {
+            if let Ok(new_state) = serde_json::from_str(input_state_string) {
+                let state: &mut LunchBotState = &mut state.lock().unwrap();
+                *state = new_state;
+                format!("Success")
+            } else {
+                format!("Fail")
+            }
+        }
         _ => include_str!("../usage").to_string(),
     }
 }
