@@ -1,8 +1,8 @@
 use std::fmt;
-use std::time::{Duration, SystemTime};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, SystemTime};
 
-use super::syntax::{ListOptions, LunchCommand, parse_command};
+use super::syntax::{parse_command, ListOptions};
 
 pub type User = String;
 
@@ -14,7 +14,9 @@ pub struct Group {
 
 impl Group {
     pub fn new<T>(name: T, users: Vec<T>) -> Group
-        where T: Into<String> {
+    where
+        T: Into<String>,
+    {
         Group {
             name: name.into(),
             users: users.into_iter().map(Into::into).collect(),
@@ -22,7 +24,9 @@ impl Group {
     }
 
     pub fn push_user<T>(&mut self, user: T)
-        where T: Into<String> {
+    where
+        T: Into<String>,
+    {
         self.users.push(user.into());
     }
 
@@ -31,15 +35,16 @@ impl Group {
     pub fn update_names(&self, users: Vec<User>) -> Group {
         Group {
             name: String::new(),
-            users: self.users.iter()
+            users: self
+                .users
+                .iter()
                 .filter_map(|base_user| {
-                    users.iter()
-                        .find(|current_user| {
-                            current_user.starts_with(base_user)
-                        })
+                    users
+                        .iter()
+                        .find(|current_user| current_user.starts_with(base_user))
                         .map(|u| u.to_string())
                 })
-                .collect()
+                .collect(),
         }
     }
 }
@@ -66,7 +71,9 @@ impl fmt::Debug for Proposal {
 
 impl Proposal {
     pub fn new<T>(place: T, time: T) -> Proposal
-        where T: Into<String> {
+    where
+        T: Into<String>,
+    {
         Proposal {
             place: place.into(),
             time: time.into(),
@@ -76,7 +83,9 @@ impl Proposal {
     }
 
     pub fn new_with_group<T>(place: T, time: T, group: T) -> Proposal
-        where T: Into<String> {
+    where
+        T: Into<String>,
+    {
         Proposal {
             place: place.into(),
             time: time.into(),
@@ -89,7 +98,6 @@ impl Proposal {
 pub trait StateUpdateCallbacks {
     fn get_list_of_users(&self, channel: &str) -> Vec<User>;
 }
-
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct LunchBotState {
@@ -110,8 +118,7 @@ impl LunchBotState {
     }
 
     fn get_group<'a>(&'a mut self, name: &str) -> Option<&'a mut Group> {
-        self.groups.iter_mut()
-            .find(|g| g.name == name)
+        self.groups.iter_mut().find(|g| g.name == name)
     }
 
     fn remove_group(&mut self, name: &str) -> bool {
@@ -125,14 +132,15 @@ impl LunchBotState {
     }
 
     pub fn list_of_groups(&self) -> String {
-        self.groups.iter()
+        self.groups
+            .iter()
             .map(|g| g.name.clone())
             .collect::<Vec<_>>()
             .join(",")
     }
 
     pub fn remove_old_proposals(&mut self) {
-        let dur = Duration::from_secs(60*60*2);
+        let dur = Duration::from_secs(60 * 60 * 2);
         self.proposals.retain(|p| {
             if let Ok(d) = p.created.elapsed() {
                 d < dur
@@ -148,7 +156,9 @@ impl LunchBotState {
 }
 
 pub fn update_state<T>(line: &str, state: Arc<Mutex<LunchBotState>>, cb: &T) -> String
-    where T: StateUpdateCallbacks {
+where
+    T: StateUpdateCallbacks,
+{
     use LunchCommand::*;
 
     match parse_command(line) {
@@ -196,10 +206,11 @@ pub fn update_state<T>(line: &str, state: Arc<Mutex<LunchBotState>>, cb: &T) -> 
                         let users = cb.get_list_of_users(&channel);
                         info!("Users: {:?}", users);
                         let updated_names = g.update_names(users);
-                        info!("Propose {:?}, group {:?}, names {:?}", proposal, g, updated_names);
-                        ret = format!("{} go to {} at {}",
-                                      updated_names,
-                                      place, time);
+                        info!(
+                            "Propose {:?}, group {:?}, names {:?}",
+                            proposal, g, updated_names
+                        );
+                        ret = format!("{} go to {} at {}", updated_names, place, time);
                     } else {
                         ret = format!("-No such group- go to {} at {}", place, time);
                     }
@@ -214,20 +225,16 @@ pub fn update_state<T>(line: &str, state: Arc<Mutex<LunchBotState>>, cb: &T) -> 
                 format!("New proposal: go to {} at {}", place, time)
             }
         }
-        Some(List(opt)) => {
-            match opt {
-                ListOptions::Proposals => {
-                    let proposals = &state.lock().unwrap().proposals;
-                    format!("All proposals: {:?}", proposals)
-                }
-                ListOptions::Groups => {
-                    let groups = state.lock().unwrap().list_of_groups();
-                    format!("Groups: {}", groups)
-                }
+        Some(List(opt)) => match opt {
+            ListOptions::Proposals => {
+                let proposals = &state.lock().unwrap().proposals;
+                format!("All proposals: {:?}", proposals)
             }
-        }
-        _ => {
-            include_str!("../usage").to_string()
-        }
+            ListOptions::Groups => {
+                let groups = state.lock().unwrap().list_of_groups();
+                format!("Groups: {}", groups)
+            }
+        },
+        _ => include_str!("../usage").to_string(),
     }
 }

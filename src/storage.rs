@@ -1,8 +1,8 @@
 use failure::Error;
 use serde_json;
 use state::LunchBotState;
-use std::io::prelude::*;
 use std::fs::File;
+use std::io::prelude::*;
 use std::path::Path;
 
 pub fn backup_state(state: &LunchBotState, file_name: &Path) -> Result<(), Error> {

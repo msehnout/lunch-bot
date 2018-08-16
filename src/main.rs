@@ -1,11 +1,14 @@
-extern crate irc;
 extern crate env_logger;
 extern crate failure;
-#[macro_use] extern crate log;
-#[macro_use] extern crate lazy_static;
+extern crate irc;
+#[macro_use]
+extern crate log;
+#[macro_use]
+extern crate lazy_static;
 extern crate regex;
 extern crate tokio_timer;
-#[macro_use] extern crate serde_derive;
+#[macro_use]
+extern crate serde_derive;
 extern crate serde;
 extern crate serde_json;
 
@@ -13,17 +16,15 @@ use failure::Error;
 use irc::client::prelude::*;
 use irc::error::IrcError;
 use irc::proto::caps::Capability;
-use regex::{Regex};
-use std::fmt;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 
 mod syntax;
-use syntax::{LunchCommand, ListOptions};
+use syntax::LunchCommand;
 
 mod state;
-use state::{User, Group, LunchBotState, Proposal, StateUpdateCallbacks, update_state};
+use state::{update_state, LunchBotState, StateUpdateCallbacks, User};
 
 mod storage;
 
@@ -67,9 +68,12 @@ fn run() -> Result<(), Error> {
     let client = match reactor.prepare_client_and_connect(&config) {
         Ok(c) => c,
         Err(_e) => {
-            error!("Could not connect to the server: {}", &config.server.unwrap());
+            error!(
+                "Could not connect to the server: {}",
+                &config.server.unwrap()
+            );
             panic!("Don't know how to handle this error yet")
-        },
+        }
     };
     client.send_cap_req(&[Capability::MultiPrefix])?;
     client.identify()?;
@@ -84,22 +88,19 @@ fn run() -> Result<(), Error> {
 
     let sc = state.clone();
 
-    reactor.register_future(send_interval
-        .map_err(IrcError::Timer)
-        .for_each(move |_| {
-            // Anything in here will happen every 60 seconds!
-            let state = &mut sc.lock().unwrap();
-            let num_before = state.num_of_proposals();
-            state.remove_old_proposals();
-            let num_after = state.num_of_proposals();
-            let removed = num_before - num_after;
-            if removed > 0 {
-                info!("Removing {} old proposals", removed);
-            }
-            //send_client.send_privmsg("#rust-spam", "AWOOOOOOOOOO")
-            Ok(())
-        })
-    );
+    reactor.register_future(send_interval.map_err(IrcError::Timer).for_each(move |_| {
+        // Anything in here will happen every 60 seconds!
+        let state = &mut sc.lock().unwrap();
+        let num_before = state.num_of_proposals();
+        state.remove_old_proposals();
+        let num_after = state.num_of_proposals();
+        let removed = num_before - num_after;
+        if removed > 0 {
+            info!("Removing {} old proposals", removed);
+        }
+        //send_client.send_privmsg("#rust-spam", "AWOOOOOOOOOO")
+        Ok(())
+    }));
 
     if let Ok(v) = backup_file {
         let backup_interval = tokio_timer::wheel()
@@ -110,20 +111,19 @@ fn run() -> Result<(), Error> {
 
         let sc = state.clone();
 
-        reactor.register_future(
-            backup_interval.map_err(IrcError::Timer)
-                .for_each(move|_| {
-                    if let Err(e) = storage::backup_state(&sc.lock().unwrap(), Path::new(&v)) {
-                        error!("Failed to backup the state: {}", e);
-                    }
-                    Ok(())
-                })
-        );
-
+        reactor.register_future(backup_interval.map_err(IrcError::Timer).for_each(move |_| {
+            if let Err(e) = storage::backup_state(&sc.lock().unwrap(), Path::new(&v)) {
+                error!("Failed to backup the state: {}", e);
+            }
+            Ok(())
+        }));
     }
 
-    reactor.register_client_with_handler(client,move|irc_client, message| {
-        info!("Message |{:?}|::|{:?}|::|{:?}|", message.tags, message.prefix, message.command);
+    reactor.register_client_with_handler(client, move |irc_client, message| {
+        info!(
+            "Message |{:?}|::|{:?}|::|{:?}|",
+            message.tags, message.prefix, message.command
+        );
         match message.command {
             Command::PRIVMSG(ref target, ref line) => {
                 if line.starts_with("lb ") {
@@ -137,10 +137,7 @@ fn run() -> Result<(), Error> {
                     // as a private to the sender only
                     if target == current_nickname {
                         if let Some(prefix) = msg_prefix {
-                            if let Err(e) = irc_client.send_privmsg(
-                                prefix,
-                                &response
-                            ) {
+                            if let Err(e) = irc_client.send_privmsg(prefix, &response) {
                                 error!("send_privmsg: {:?}", e);
                             }
                         } else {
@@ -148,10 +145,7 @@ fn run() -> Result<(), Error> {
                         }
                     // else send it to the channel
                     } else {
-                        if let Err(e) = irc_client.send_privmsg(
-                            target,
-                            &response
-                        ) {
+                        if let Err(e) = irc_client.send_privmsg(target, &response) {
                             error!("send_privmsg: {:?}", e);
                         }
                     }
@@ -173,7 +167,9 @@ fn main() {
     use log::LevelFilter;
 
     let mut builder = Builder::new();
-    builder.target(Target::Stdout).filter_level(LevelFilter::Info);
+    builder
+        .target(Target::Stdout)
+        .filter_level(LevelFilter::Info);
     builder.init();
 
     info!("Starting up");

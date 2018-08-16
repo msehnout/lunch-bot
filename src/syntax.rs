@@ -1,20 +1,21 @@
-use regex::{Captures, Match, Regex};
+use regex::{Captures, Regex};
 use std::str::FromStr;
 
 const PROPOSE_SYNTAX: &'static str = concat!(
-    r"lb propose ",                         // command
-    r#"((?:[\w-]+|['"][\s\w-]+['"])) "#,    // place
-    r"(?:at |@ )?",                         // optional separator
-    r"([\w:]+)",                            // time
-    r"(?: to (\w+))?"                       // optional group
+    r"lb propose ",                      // command
+    r#"((?:[\w-]+|['"][\s\w-]+['"])) "#, // place
+    r"(?:at |@ )?",                      // optional separator
+    r"([\w:]+)",                         // time
+    r"(?: to (\w+))?"                    // optional group
 );
 
 lazy_static! {
-        static ref ADD_CMD_REGEX: Regex = Regex::new(r"lb add (\d+)").unwrap();
-        static ref ADD_USER_CMD_REGEX: Regex = Regex::new(r"lb add (\w+) to (\w+)").unwrap();
-        static ref GROUP_CMD_REGEX: Regex = Regex::new(r"lb group (?:(add) (\w+) ([\w,]+)|(remove) (\w+))").unwrap();
-        static ref PROPOSE_CMD_REGEX: Regex = Regex::new(PROPOSE_SYNTAX).unwrap();
-        static ref LIST_CMD_REGEX: Regex = Regex::new(r"lb list(?: (groups|proposals))?").unwrap();
+    static ref ADD_CMD_REGEX: Regex = Regex::new(r"lb add (\d+)").unwrap();
+    static ref ADD_USER_CMD_REGEX: Regex = Regex::new(r"lb add (\w+) to (\w+)").unwrap();
+    static ref GROUP_CMD_REGEX: Regex =
+        Regex::new(r"lb group (?:(add) (\w+) ([\w,]+)|(remove) (\w+))").unwrap();
+    static ref PROPOSE_CMD_REGEX: Regex = Regex::new(PROPOSE_SYNTAX).unwrap();
+    static ref LIST_CMD_REGEX: Regex = Regex::new(r"lb list(?: (groups|proposals))?").unwrap();
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -24,7 +25,7 @@ pub enum ListOptions {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub enum LunchCommand<'a>{
+pub enum LunchCommand<'a> {
     Add(u32),
     AddUser(&'a str, &'a str),
     GroupAdd(&'a str, Vec<&'a str>),
@@ -70,7 +71,7 @@ fn list(caps: Captures) -> Option<LunchCommand> {
         match option.as_str() {
             "groups" => Some(LunchCommand::List(ListOptions::Groups)),
             "proposals" => Some(LunchCommand::List(ListOptions::Proposals)),
-            _ => None
+            _ => None,
         }
     } else {
         Some(LunchCommand::List(ListOptions::Proposals))
@@ -95,84 +96,112 @@ pub fn parse_command(line: &str) -> Option<LunchCommand> {
 
 #[test]
 fn test_add_cmd() {
-    assert_eq!(Some(LunchCommand::Add(5)),
-               parse_command("lb add 5"))
+    assert_eq!(Some(LunchCommand::Add(5)), parse_command("lb add 5"))
 }
 
 #[test]
 fn test_add_user_cmd() {
-    assert_eq!(Some(LunchCommand::AddUser("honza", "coreserv1")),
-               parse_command("lb add honza to coreserv1"))
+    assert_eq!(
+        Some(LunchCommand::AddUser("honza", "coreserv1")),
+        parse_command("lb add honza to coreserv1")
+    )
 }
 
 #[test]
 fn test_group_add_cmd() {
-    assert_eq!(Some(LunchCommand::GroupAdd("coreserv1", vec!["jan", "ondra", "tester"])),
-               parse_command("lb group add coreserv1 jan,ondra,tester"))
+    assert_eq!(
+        Some(LunchCommand::GroupAdd(
+            "coreserv1",
+            vec!["jan", "ondra", "tester"]
+        )),
+        parse_command("lb group add coreserv1 jan,ondra,tester")
+    )
 }
 
 #[test]
 fn test_group_remove_cmd() {
-    assert_eq!(Some(LunchCommand::GroupRemove("coreserv1")),
-               parse_command("lb group remove coreserv1"))
+    assert_eq!(
+        Some(LunchCommand::GroupRemove("coreserv1")),
+        parse_command("lb group remove coreserv1")
+    )
 }
 
 #[test]
 fn test_list_cmd() {
-    assert_eq!(Some(LunchCommand::List(ListOptions::Proposals)),
-               parse_command("lb list"))
+    assert_eq!(
+        Some(LunchCommand::List(ListOptions::Proposals)),
+        parse_command("lb list")
+    )
 }
 
 #[test]
 fn test_list_groups_cmd() {
-    assert_eq!(Some(LunchCommand::List(ListOptions::Groups)),
-               parse_command("lb list groups"))
+    assert_eq!(
+        Some(LunchCommand::List(ListOptions::Groups)),
+        parse_command("lb list groups")
+    )
 }
 
 #[test]
 fn test_list_proposals_cmd() {
-    assert_eq!(Some(LunchCommand::List(ListOptions::Proposals)),
-               parse_command("lb list proposals"))
+    assert_eq!(
+        Some(LunchCommand::List(ListOptions::Proposals)),
+        parse_command("lb list proposals")
+    )
 }
 
 #[test]
 fn test_propose_cmd() {
-    assert_eq!(Some(LunchCommand::Propose("winston", "10:55", None)),
-               parse_command("lb propose winston 10:55"))
+    assert_eq!(
+        Some(LunchCommand::Propose("winston", "10:55", None)),
+        parse_command("lb propose winston 10:55")
+    )
 }
 
 #[test]
 fn test_propose_to_group_cmd() {
-    assert_eq!(Some(LunchCommand::Propose("winston", "10:55", Some("corserv1"))),
-               parse_command("lb propose winston 10:55 to corserv1"))
+    assert_eq!(
+        Some(LunchCommand::Propose("winston", "10:55", Some("corserv1"))),
+        parse_command("lb propose winston 10:55 to corserv1")
+    )
 }
 
 #[test]
 fn test_propose_cmd_with_dashes() {
-    assert_eq!(Some(LunchCommand::Propose("taste-of-india", "10:55", None)),
-               parse_command("lb propose taste-of-india 10:55"))
+    assert_eq!(
+        Some(LunchCommand::Propose("taste-of-india", "10:55", None)),
+        parse_command("lb propose taste-of-india 10:55")
+    )
 }
 
 #[test]
 fn test_propose_cmd_with_quotation_marks() {
-    assert_eq!(Some(LunchCommand::Propose(r#""taste of india""#, "10:55", None)),
-               parse_command(r#"lb propose "taste of india" 10:55"#))
+    assert_eq!(
+        Some(LunchCommand::Propose(r#""taste of india""#, "10:55", None)),
+        parse_command(r#"lb propose "taste of india" 10:55"#)
+    )
 }
 
 #[test]
 fn test_propose_cmd_with_quotation_marks2() {
-    assert_eq!(Some(LunchCommand::Propose(r#"'taste of india'"#, "10:55", None)),
-               parse_command(r#"lb propose 'taste of india' 10:55"#))
+    assert_eq!(
+        Some(LunchCommand::Propose(r#"'taste of india'"#, "10:55", None)),
+        parse_command(r#"lb propose 'taste of india' 10:55"#)
+    )
 }
 
 #[test]
 fn test_propose_cmd_with_at() {
-    assert_eq!(Some(LunchCommand::Propose(r#"'taste of india'"#, "10:55", None)),
-               parse_command(r#"lb propose 'taste of india' at 10:55"#))
+    assert_eq!(
+        Some(LunchCommand::Propose(r#"'taste of india'"#, "10:55", None)),
+        parse_command(r#"lb propose 'taste of india' at 10:55"#)
+    )
 }
 
 #[test]
 fn test_propose_cmd_with_at_sign() {
-    assert_eq!(Some(LunchCommand::Propose(r#"'taste of india'"#, "10:55", None)),
-               parse_command(r#"lb propose 'taste of india' @ 10:55"#))
+    assert_eq!(
+        Some(LunchCommand::Propose(r#"'taste of india'"#, "10:55", None)),
+        parse_command(r#"lb propose 'taste of india' @ 10:55"#)
+    )
 }
