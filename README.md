@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/msehnout/lunch-bot.svg?branch=master)](https://travis-ci.org/msehnout/lunch-bot)
+
 # IRC lunch bot
 
 Features: 
@@ -25,7 +27,7 @@ lb list proposals
 
 Usage:
 ```
-  lb propose <place>[ at] <time> [to <group>]
+  lb propose <place>[ at] <time>[ to <group>][ meet <place> <time>]
   lb list (groups|proposals)
   lb group (add <group-name> <comma-separated-list-of-users>|remove <group-name>)
   lb add <user> to <group>
