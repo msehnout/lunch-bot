@@ -80,16 +80,18 @@ fn run() -> Result<(), Error> {
 
     let state = Arc::new(Mutex::new(state));
 
-    let send_interval = tokio_timer::wheel()
+    let timer = tokio_timer::wheel()
         .tick_duration(Duration::from_secs(1))
         .num_slots(256)
-        .build()
-        .interval(Duration::from_secs(60));
+        .build();
+
+
+    let send_interval = timer.interval(Duration::from_secs(60));
 
     let sc = state.clone();
 
     reactor.register_future(send_interval.map_err(IrcError::Timer).for_each(move |_| {
-        // Anything in here will happen every 60 seconds!
+        // Remove old proposals
         let state = &mut sc.lock().unwrap();
         let num_before = state.num_of_proposals();
         state.remove_old_proposals();
@@ -98,26 +100,16 @@ fn run() -> Result<(), Error> {
         if removed > 0 {
             info!("Removing {} old proposals", removed);
         }
-        //send_client.send_privmsg("#rust-spam", "AWOOOOOOOOOO")
-        Ok(())
-    }));
 
-    if let Ok(v) = backup_file {
-        let backup_interval = tokio_timer::wheel()
-            .tick_duration(Duration::from_secs(1))
-            .num_slots(256)
-            .build()
-            .interval(Duration::from_secs(300));
-
-        let sc = state.clone();
-
-        reactor.register_future(backup_interval.map_err(IrcError::Timer).for_each(move |_| {
-            if let Err(e) = storage::backup_state(&sc.lock().unwrap(), Path::new(&v)) {
+        // Backup state
+        if let Ok(ref v) = backup_file {
+            if let Err(e) = storage::backup_state(&state, Path::new(&v)) {
                 error!("Failed to backup the state: {}", e);
             }
-            Ok(())
-        }));
-    }
+        }
+
+        Ok(())
+    }));
 
     reactor.register_client_with_handler(client, move |irc_client, message| {
         match message.command {
@@ -148,19 +140,10 @@ fn run() -> Result<(), Error> {
 
 fn main() {
     // Set up logging
-    //env_logger::init();
-    use env_logger::{Builder, Target};
-    use log::LevelFilter;
-
-    let mut builder = Builder::new();
-    builder
-        .target(Target::Stdout)
-        .filter_level(LevelFilter::Info);
-    builder.init();
-
+    env_logger::init();
     info!("Starting up");
 
     if let Err(e) = run() {
-        error!("{}", e);
+        error!("Terminating the application due to this error: {}", e);
     }
 }
